@@ -1,0 +1,30 @@
+CC = @CC@
+CFLAGS = @CFLAGS@
+LDFLAGS= @LDFLAGS@
+
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+bindir = @bindir@
+libdir = @libdir@
+mandir = @mandir@
+datarootdir = @datarootdir@
+AWKE_LIB_PATH = @datadir@/awke
+
+targets=@targets@
+
+all: $(targets)
+
+.PHONY: clean all distclean
+
+distclean:clean
+	rm -rf autom4te.cache config.log config.status Makefile
+
+clean:
+	rm -f *.o parallel ssh_parallel
+
+install: $(targets)
+	mkdir -p $(bindir) 
+	cp $(targets) $(bindir)
+	mkdir -p $(mandir)/man1
+	cp parallel.1 $(mandir)/man1
+	cp parallel.1 $(mandir)/man1/ssh_parallel.1
