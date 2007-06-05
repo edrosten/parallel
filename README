@@ -1,4 +1,5 @@
 Parallel
+--------
 
 Copyright (c) Edward Rosten 2007
 
@@ -18,3 +19,8 @@ make install
 
 See the man page for further documentation.
 
+
+Acknowledgements
+----------------
+
+Thanks to Icarus Sparry for help clening V1.0 up to make V1.1

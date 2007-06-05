@@ -11,6 +11,7 @@
 #include <vector>
 #include <set>
 #include <map>
+#include <list>
 
 using namespace std;
 
@@ -44,7 +45,19 @@ int main(int argc, char** argv)
 	string dir=argv[start];
 
 	if(dir == ".")
-		dir = getenv("PWD");
+	{
+		while(getcwd(&dir[0], dir.size()) == 0)
+		{
+			if(errno == ERANGE)
+				dir.resize(dir.size() * 2);
+			else
+				ERROR("Could not read current directory: " << strerror(errno));
+		}
+		
+		dir.resize(strlen(dir.data()));
+		VERBOSE("Working directory is " << dir);
+	}
+
 
 	for(int i=start+1; i < argc; i += 2)
 	{
@@ -55,8 +68,8 @@ int main(int argc, char** argv)
 
 		int num = atoi(argv[i+1]);	
 
-		if(num == 0)
-		ERROR("Silly number of processes for " << machine);
+		if(num <= 0)
+		ERROR("Silly number of processes (" << num << ") for " << machine);
 		
 		//Create slots
 		for(int n=0; n < num; n++)
@@ -67,11 +80,10 @@ int main(int argc, char** argv)
 		ERROR("No machines given.");
 
 
-	//Open /dev/zero for reading. This will be used as stdin for all spawned
-	//processes so that they can't steal input to the main program. This is
-	//a problem since SSH does steal input. 
-	int devzero = open("/dev/zero", O_RDONLY);
-	if(devzero == -1)
+	//Open /dev/null for reading. This will be used as stdin for all spawned
+	//processes so that they can't steal input to the main program.
+	int devnull = open("/dev/null", O_RDONLY);
+	if(devnull == -1)
 		ERROR("error: could not open /dev/zero (" << strerror(errno) << ")" << endl
 		     << "If this error occurs, then your machine is _very_ seriously b0rked.");
 	
@@ -83,6 +95,9 @@ int main(int argc, char** argv)
 
 	//Record which running/finishing PIDs are in which slot
 	map<int,int> pid_to_slot;
+
+	//Which lines failed to fork
+	list<string> failed_lines;
 	
 	for(;;)
 	{
@@ -100,7 +115,14 @@ int main(int argc, char** argv)
 		
 		//Get a line of input...
 		string line;
-		getline(cin, line);
+
+		if(failed_lines.empty())
+			getline(cin, line);
+		else
+		{
+			line = failed_lines.front();
+			failed_lines.pop_front();
+		}
 
 		VERBOSE("Input line -->" << line << "<--");
 
@@ -113,23 +135,24 @@ int main(int argc, char** argv)
 		
 		pid = fork();
 
+
 		if(pid==0) //We are the child process
 		{
 			string m = machine_list[a_free_slot];
 			
 			//Change in to the working director. This is necessary since ssh loses this
-			line = "cd " + dir + "; " + line;
+			line = "cd " + dir + "&& " + line;
 			
 			//If a machine name is specified, then ssh to it, otherwise run the process
 			//locally
 			if(m != "")
-				line = "ssh " + m + " '" + line + "'";
+				line = "ssh -n " + m + " '" + line + "'";
 
 			VERBOSE("Executing (with bash -c) -->" << line << "<--");
 			
 			//Make stdin point to /dev/zero
 			close(0);
-			dup2(devzero, 0);
+			dup2(devnull, 0);
 			
 			execlp("bash", "bash", "-c", line.c_str(), NULL);
 
@@ -141,6 +164,7 @@ int main(int argc, char** argv)
 			clog << "Fork failed with error " << strerror(errno) << ". Sleeping for second." << endl;	
 			//Reinsert the stuff
 			free_slots.insert(a_free_slot);
+			failed_lines.push_back(line);
 			sleep(1);
 		}
 		else

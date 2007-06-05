@@ -10,6 +10,9 @@ int main(int argc, char** argv)
 {	
 	int num, *procs, i, pid;
 	char line_buf[32768];
+	char line_buf2[32768];
+	int saved_line = 0;
+
 	
 	if(argc != 2)
 	{
@@ -47,12 +50,18 @@ int main(int argc, char** argv)
 		
 
 		not_full:
+		
 
-		fgets(line_buf, sizeof(line_buf), stdin);
+		if(saved_line)
+		{
+			memcpy(line_buf, line_buf2, sizeof(line_buf));
+			saved_line = 0;
+		}
+		else
+			fgets(line_buf, sizeof(line_buf), stdin);
 
 		if(feof(stdin))
 			break;
-		
 		
 		pid = fork();
 
@@ -61,6 +70,13 @@ int main(int argc, char** argv)
 			execlp("bash", "bash", "-c", line_buf, NULL);
 			fprintf(stderr, "%s: exec failed: %s\n", argv[0], strerror(errno));
 			return -1;
+		}
+		else if(pid == -1)
+		{
+			fprintf(stderr, "Fork failed with code %s. Sleeping for 1 second.\n", strerror(errno));
+			memcpy(line_buf2, line_buf, sizeof(line_buf));
+			sleep(1);
+			saved_line = 1;
 		}
 
 		//Otherwise, insert this process in to the PID list.
