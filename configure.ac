@@ -1,5 +1,5 @@
-AC_INIT(awke,0.2.0)
-AC_COPYRIGHT(Copyright)
+AC_INIT(parallel,1.2.0)
+AC_COPYRIGHT([Copyright E. Rosten 2006, 2007, 2008])
 
 AC_PROG_CC
 AC_PROG_CXX
@@ -18,7 +18,10 @@ else
 	targets="$targets ssh_parallel"
 fi
 
+
 AC_SUBST(targets, $targets)
+AC_CONFIG_HEADERS(config.h)
+
 AC_OUTPUT(Makefile)
 
 echo

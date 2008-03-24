@@ -7,7 +7,7 @@ parallel, ssh_parallel \- execute lines of input in parallel
 processes
 
 .B ssh_parallel
-[-v] directory machine1 processes1 [machine2 processes2 [...]]
+[-h] [-n NICE] [-v] directory machine1 processes1 [machine2 processes2 [...]]
 .SH DESCRIPTION
 .B parallel
 and 
@@ -30,6 +30,12 @@ number of processes to run in parallel
 
 .SH SSH_PARALLEL
 Command line arguments:
+.TP
+.B -h
+print a help message
+.TP
+.B -n NICE
+run processes with priority NICE
 .TP
 .B -v
 verbose operation
@@ -55,7 +61,7 @@ Additional machine to run processes on.
 Edward Rosten
 
 .SH COPYRIGHT
-Copyright \(co 2007 Edward Rosten.
+Copyright \(co 2007, 2008 Edward Rosten.
 .br
 This is free software; see the source for copying conditions.  There is NO
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
@@ -63,3 +69,4 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 .sh SEE ALSO
 .B bash(1)
 .B ssh(1)
+.B renice(1)

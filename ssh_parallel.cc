@@ -8,6 +8,7 @@
 
 #include <string>
 #include <iostream>
+#include <sstream>
 #include <vector>
 #include <set>
 #include <map>
@@ -22,19 +23,60 @@ int main(int argc, char** argv)
 {	
 	int verbose=0;
 	int start=1;
+	string nice="";
+	int error=0;
+	
+	ostringstream usage;
+	usage << "[-n NICE] [-v] [-h] dir machine #processes [ machine #processes [... ]]" << endl;
 
-	if(argc > 1 && argv[1] == string("-v"))
+
 	{
-		verbose=1;
-		start=2;
+		int c;
+		opterr=0;
+		while((c=getopt(argc, argv, "hvn:")) != -1)
+			switch(c)
+			{
+				case 'v':
+					verbose=1;
+					break;
+
+				case 'h':
+					cout << "Usage: " << argv[0] << " " << usage.str();
+					cout << endl;
+					return 0;
+					break;
+
+				case 'n':
+					{
+						ostringstream nv;
+						nv << optarg;
+						nice = nv.str();
+					}
+					break;
+
+				case '?':
+					error=1;
+					if(optopt == 'n')
+						cerr << argv[0] << ": Error: -n requires an argument." << endl;
+					else
+						cerr << argv[0] << ": Error: Unknown option -" << (char)optopt << endl;
+					break;
+				default:
+					abort();
+			}
+
+		start=optind;
+		if(error != 0)
+			return 1;
 	}
 
+	
 	VERBOSE("Starting...");
 	int pid;
 	
 	if(argc-start < 3)
 	{
-		cerr << argv[0] << ": Error: supply  [-v] dir machine #processes [ machine #processes [... ]]" << endl;
+		cerr << argv[0] << ": Error: " << usage.str();
 		return 1;
 	}
 	
@@ -139,10 +181,16 @@ int main(int argc, char** argv)
 		if(pid==0) //We are the child process
 		{
 			string m = machine_list[a_free_slot];
+
 			
 			//Change in to the working director. This is necessary since ssh loses this
 			line = "cd " + dir + "&& " + line;
 			
+			//Alter the niceness if ncessary
+			if(nice != "")
+				line = "renice " + nice + " $$ > /dev/null && " + line;
+
+
 			//If a machine name is specified, then ssh to it, otherwise run the process
 			//locally
 			if(m != "")
