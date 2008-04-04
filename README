@@ -19,6 +19,10 @@ make install
 
 See the man page for further documentation.
 
+I have attempted to test the program by replacing fork() and exec() with
+calls that randomly fail. The program produces the expected output in this
+case. 
+
 
 Acknowledgements
 ----------------
