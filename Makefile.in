@@ -1,5 +1,7 @@
 CC = @CC@
-CFLAGS = @CFLAGS@
+CXX= @CXX@
+CFLAGS = @CXXFLAGS@
+CXXFLAGS = @CXXFLAGS@
 LDFLAGS= @LDFLAGS@
 
 prefix = @prefix@
