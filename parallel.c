@@ -22,7 +22,7 @@ int main(int argc, char** argv)
 
 	num = atoi(argv[1]);	
 
-	if(num < 2)
+	if(num < 1)
 	{
 		fprintf(stderr, "%s: Error: silly number of processes.\n", argv[0]);
 		return 1;

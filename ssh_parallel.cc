@@ -43,7 +43,6 @@ int main(int argc, char** argv)
 
 
 	{
-		int error=0;
 		int c;
 		opterr=0;
 		while((c=getopt(argc, argv, "hvn:s:")) != -1)
@@ -73,7 +72,6 @@ int main(int argc, char** argv)
 					break;
 
 				case '?':
-					error=1;
 					if(optopt == 'n')
 						ERROR("-n requires an argument.");
 					else
@@ -84,8 +82,6 @@ int main(int argc, char** argv)
 			}
 
 		start=optind;
-		if(error != 0)
-			return 1;
 	}
 
 	
