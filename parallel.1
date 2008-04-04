@@ -49,7 +49,10 @@ run processes with priority NICE
 verbose operation
 .TP
 .B directory
-directory to operate in. \fB.\fR is a synonym for $PWD.
+directory to operate in. \fB.\fR refers to the current working directory. This 
+may not be the same text as $PWD, since some shells keep track of followed symlinks. 
+The most suitable choice depends on your environment.
+
 
 .TP
 .B machine1 processes1
@@ -58,7 +61,7 @@ Machine to execute processes on, and number of processes to execute in parallel.
 can be given in 
 .B user@host
 format. A machine name of
-.B ""
+.B """"""
 corresponds to the local machine. SSH is not used in this case. 
 
 .TP 
@@ -86,6 +89,14 @@ can indicate an intermittent network problem. As a result, the machine which fai
 is put to sleep for TIME seconds (default 10). Each available process on a machine 
 counts as a different machine.
 
+.SH EXAMPLES
+.TP
+Convert all PNG files to JPEG files using 4 simultaneous processes:
+ ls | grep \(aq\e.png$\(aq | sed -e \(aqs/\(.*\)png/convert & \e1jpg/\(aq | parallel 4
+.TP
+Perform the same operation on bigserver and hugeserver, using more processes:
+ ls | grep \(aq\e.png$\(aq | sed -e \(aqs/\(.*\)png/convert & \e1jpg/\(aq | ssh_parallel $PWD bigserver 8 hugeserver 16
+
 
 .SH AUTHOR
 Edward Rosten
@@ -100,3 +111,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 .B bash(1)
 .B ssh(1)
 .B renice(1)
+
+.pm
+.pm
+sdad
