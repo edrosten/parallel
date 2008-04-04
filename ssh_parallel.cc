@@ -306,20 +306,22 @@ int main(int argc, char** argv)
 			if(nice != "")
 				line = "renice " + nice + " $$ > /dev/null && " + line;
 
+			//Make stdin point to /dev/null
+			close(0);
+			dup2(devnull, 0);
 
 			//If a machine name is specified, then ssh to it, otherwise run the process
 			//locally
 			if(m != "")
-				line = "ssh -n " + m + " '" + line + "'";
-
-			VERBOSE("Executing (with bash -c) -->" << line << "<--");
-			
-			//Make stdin point to /dev/zero
-			close(0);
-			dup2(devnull, 0);
-			
-
-			execlp("bash", "bash", "-c", line.c_str(), NULL);
+			{
+				VERBOSE("Executing (with ssh -n " << m << ") -->" << line);
+				execlp("ssh", "ssh", "-n", m.c_str(), line.c_str(), NULL);
+			}
+			else
+			{
+				VERBOSE("Executing (with bash -c) -->" << line << "<--");
+				execlp("bash", "bash", "-c", line.c_str(), NULL);
+			}
 
 			NONFATALERROR("exec failed: " << strerror(errno));
 			return 254;
