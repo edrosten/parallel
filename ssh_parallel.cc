@@ -343,11 +343,5 @@ int main(int argc, char** argv)
 
 	}
 
-	int tmp;
-	//Wait for children to become free
-	VERBOSE("EOF on stdin reached. Waiting for children.");
-	while(wait3(&tmp, 0, 0) != -1);
-	VERBOSE("Done");
-
 	return 0;
 }
