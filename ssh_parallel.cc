@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <sys/wait.h>
+#include <sys/time.h>
 #include <string.h>
 #include <errno.h>
 #include <stdio.h>
@@ -17,23 +18,35 @@
 using namespace std;
 
 #define VERBOSE(X) if(verbose) clog << argv[0] << ": " << X << endl
-#define ERROR(X) do{cerr << argv[0] << ": " << X << endl;return 1;}while(0)
+#define ERROR(X) do{cerr << argv[0] << ": Error: " << X << endl;return 1;}while(0)
+#define NONFATALERROR(X) do{cerr << argv[0] << ": Error: " << X << endl;}while(0)
+#define WARNING(X) do{cerr << argv[0] << ": Warning: " << X << endl;}while(0)
+
+double gettimeofday()
+{
+	struct  timeval tv;
+	gettimeofday(&tv, 0);
+	return tv.tv_sec  + tv.tv_usec * 1e-6;
+}
+
+
 
 int main(int argc, char** argv)
 {	
 	int verbose=0;
 	int start=1;
+	unsigned int sleep_timeout=10;
 	string nice="";
-	int error=0;
 	
 	ostringstream usage;
-	usage << "[-n NICE] [-v] [-h] dir machine #processes [ machine #processes [... ]]" << endl;
+	usage << "[-n NICE] [-s TIME] [-v] [-h] dir machine #processes [ machine #processes [... ]]" << endl;
 
 
 	{
+		int error=0;
 		int c;
 		opterr=0;
-		while((c=getopt(argc, argv, "hvn:")) != -1)
+		while((c=getopt(argc, argv, "hvn:s:")) != -1)
 			switch(c)
 			{
 				case 'v':
@@ -46,20 +59,25 @@ int main(int argc, char** argv)
 					return 0;
 					break;
 
-				case 'n':
+				case 's':
 					{
-						ostringstream nv;
-						nv << optarg;
-						nice = nv.str();
+						sleep_timeout=0;
+						istringstream st(optarg);
+						st >> sleep_timeout;
+
+						if(sleep_timeout <= 0)
+							ERROR("timeout must ba a positive integer. " << optarg << " is not valid.");
 					}
+				case 'n':
+						nice = optarg;
 					break;
 
 				case '?':
 					error=1;
 					if(optopt == 'n')
-						cerr << argv[0] << ": Error: -n requires an argument." << endl;
+						ERROR("-n requires an argument.");
 					else
-						cerr << argv[0] << ": Error: Unknown option -" << (char)optopt << endl;
+						ERROR("Error: Unknown option -" << (char)optopt);
 					break;
 				default:
 					abort();
@@ -72,7 +90,6 @@ int main(int argc, char** argv)
 
 	
 	VERBOSE("Starting...");
-	int pid;
 	
 	if(argc-start < 3)
 	{
@@ -136,30 +153,133 @@ int main(int argc, char** argv)
 	
 
 	//Record which running/finishing PIDs are in which slot
-	map<int,int> pid_to_slot;
+	//Remember, fork() can not return the same PID twice, unless a wait() has
+	//returned on that pid.
+	map<pid_t,int> pid_to_slot;
+	map<int, string> pid_to_line;
 
 	//Which lines failed to fork
 	list<string> failed_lines;
+
+	//Record which slots have gone bad, along with their time.
+	//This allows dead machines to be reinstated after a certain timeout
+	//since there may be a temporary network error. If one machine has multiple
+	//entries, then each slot will have to go bad, before the machine is discounted.
+	//Map sorts in ascending order on the key.
+	map<double, int> bad_slots;
+
+	bool cin_ok = 1;
 	
 	for(;;)
 	{
-		
-		if(free_slots.empty())
+		//If there is no available input, or no free slots, then 
+		//wait for a process to finish.
+		while(free_slots.empty() || (!cin_ok && failed_lines.empty()))
 		{
-			int tmp;
-			//We're currently full, so wait for a process to finish
-			pid = wait3(&tmp, 0, 0);
+			//Check bad machines, and reinstate ones which have passed the timeout.
+			double now = gettimeofday();
 
-			//Insert the finished process back in to the list of available slots
-			free_slots.insert(pid_to_slot[pid]);
-			pid_to_slot.erase(pid);
+			if(!bad_slots.empty() && (now - sleep_timeout > bad_slots.begin()->first))
+			{
+				//Reinstate the machine
+				int slot = bad_slots.begin()->second;
+				VERBOSE("Reinstating " << slot << ": " << machine_list[slot]);
+				free_slots.insert(slot);
+				bad_slots.erase(bad_slots.begin());
+			}
+
+			//We're currently full, or there are no lines to process
+			//so wait for a process to finish
+			int status;
+			pid_t pid = wait(&status);
+			
+			if(pid != -1)
+			{
+				//Check to see what happened
+				int fail=0;
+
+				if(WIFEXITED(status))
+				{
+					int exits = WEXITSTATUS(status);
+					//SSH exits with 255 if it fails. 
+					//ssh_parallel exits with 254 if exec fails
+					//the remote script exits with 253 if "cd" fails.
+					if(exits == 255 || exits == 254 || exits == 253)
+					{	
+						//If SSH failes, record the bad line, and the 
+						//slot (ie machine) that failed.
+						//Do NOT add the bad slot to the list of free slots.
+						fail=1;
+
+						if(exits == 255)
+							WARNING("ssh to " << machine_list[pid_to_slot[pid]] << " failed.");
+						else if(exits == 254)
+						{
+							WARNING("exec failed. Sleeping.");
+							sleep(1);
+						}
+						else if(exits == 253)
+							WARNING("directory change to " << dir << " on " << machine_list[pid_to_slot[pid]] << " failed.");
+
+						VERBOSE("Marking " << pid_to_slot[pid] << "  as bad.");
+						VERBOSE("Failed line was --->" << pid_to_line[pid] << "<---");
+					}
+				}
+				else
+				{
+					//Insert the finished process back in to the list of available slots.
+					//I don't know what to do in this case.
+					WARNING("ssh terminated with signal" << WTERMSIG(signal));
+					fail=0;
+				}
+
+				if(fail)
+				{
+					failed_lines.push_back(pid_to_line[pid]);
+					bad_slots[gettimeofday()] = pid_to_slot[pid];
+				}
+				else
+					free_slots.insert(pid_to_slot[pid]);
+
+
+				//The pid has died, so remove it from the pid table.
+				pid_to_slot.erase(pid);
+				pid_to_line.erase(pid);
+			}
+			else
+			{
+				//If we've got here, then there are no processes to wait for.
+
+				//If there are no processes to wait for, and no pending input, then 
+				//we're done, so we can quit.
+
+				if(!cin_ok && failed_lines.empty())
+					exit(0);
+
+				//if we've got here then there are no processes to wait for, but there is pending
+				//input. That means (according to the loop condition) free_slots must be empty.
+				//That means that all machines have gone bad, so sleep.
+				WARNING("No live machines available. Sleeping.");
+				sleep(sleep_timeout);
+			}
 		}
+
 		
 		//Get a line of input...
 		string line;
 
 		if(failed_lines.empty())
+		{
+			if(!cin_ok)
+				continue;
+
 			getline(cin, line);
+			if(cin.eof())
+			{
+				cin_ok=false;
+				continue;
+			}
+		}
 		else
 		{
 			line = failed_lines.front();
@@ -168,15 +288,11 @@ int main(int argc, char** argv)
 
 		VERBOSE("Input line -->" << line << "<--");
 
-		if(cin.eof())
-			break;
-		
 		//Get the first free slot and remove it from the pool.
 		int a_free_slot = *free_slots.begin();
 		free_slots.erase(a_free_slot);
 		
-		pid = fork();
-
+		pid_t pid = fork();
 
 		if(pid==0) //We are the child process
 		{
@@ -184,7 +300,7 @@ int main(int argc, char** argv)
 
 			
 			//Change in to the working director. This is necessary since ssh loses this
-			line = "cd " + dir + "&& " + line;
+			line = "cd " + dir + " || exit 253 && " + line;
 			
 			//Alter the niceness if ncessary
 			if(nice != "")
@@ -202,14 +318,15 @@ int main(int argc, char** argv)
 			close(0);
 			dup2(devnull, 0);
 			
+
 			execlp("bash", "bash", "-c", line.c_str(), NULL);
 
-			ERROR("exec failed: " << strerror(errno));
-			return -1;
+			NONFATALERROR("exec failed: " << strerror(errno));
+			return 254;
 		}
 		else if(pid == -1)
 		{
-			clog << "Fork failed with error " << strerror(errno) << ". Sleeping for second." << endl;	
+			WARNING("Fork failed with error " << strerror(errno) << ". Sleeping for second.");
 			//Reinsert the stuff
 			free_slots.insert(a_free_slot);
 			failed_lines.push_back(line);
@@ -219,6 +336,7 @@ int main(int argc, char** argv)
 		{
 			//Otherwise, insert this process in to the PID list.
 			pid_to_slot[pid] = a_free_slot;
+			pid_to_line[pid] = line;
 		}
 
 	}

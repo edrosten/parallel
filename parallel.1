@@ -7,7 +7,7 @@ parallel, ssh_parallel \- execute lines of input in parallel
 processes
 
 .B ssh_parallel
-[-h] [-n NICE] [-v] directory machine1 processes1 [machine2 processes2 [...]]
+[-h] [-s TIME] [-n NICE] [-v] directory machine1 processes1 [machine2 processes2 [...]]
 .SH DESCRIPTION
 .B parallel
 and 
@@ -27,12 +27,20 @@ Command line arguments:
 \fBprocesses\fR
 number of processes to run in parallel
 
+.P
+In the event of
+.B fork(2)
+failing, parallel will not loose the line: it will keep retrying.
+
 
 .SH SSH_PARALLEL
 Command line arguments:
 .TP
 .B -h
 print a help message
+.TP
+.B -s TIME
+set sleep timeout to TIME seconds
 .TP
 .B -n NICE
 run processes with priority NICE
@@ -56,6 +64,28 @@ corresponds to the local machine. SSH is not used in this case.
 .TP 
 .B machine2 processes2 ...
 Additional machine to run processes on.
+
+.P
+
+There are several retryable errors which can occur. If 
+.B ssh(1),
+process spawning,
+or the change to the working directory on the remote machine
+fails, then the line will be saved and re-executed. These conditions
+are indicated by the return codes 255, 254 and 253 respectively. Since
+.B ssh(1)
+returns the return code of the remote executing script, if the remote script
+returns any of these error codes, it will be rerun, and the corresponding
+error reported.
+
+A failure of 
+.B ssh(1)
+or 
+.B cd
+can indicate an intermittent network problem. As a result, the machine which failed
+is put to sleep for TIME seconds (default 10). Each available process on a machine 
+counts as a different machine.
+
 
 .SH AUTHOR
 Edward Rosten
