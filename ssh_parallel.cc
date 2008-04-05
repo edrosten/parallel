@@ -311,7 +311,7 @@ int main(int argc, char** argv)
 			if(m != "")
 			{
 				VERBOSE("Executing (with ssh -n " << m << ") -->" << line);
-				execlp("ssh", "ssh", "-n", m.c_str(), line.c_str(), NULL);
+				execlp("ssh", "ssh", "-n", "-o", "PasswordAuthentication no ", m.c_str(), line.c_str(), NULL);
 			}
 			else
 			{

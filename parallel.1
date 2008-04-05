@@ -39,11 +39,11 @@ Command line arguments:
 .B -h
 print a help message
 .TP
-.B -s TIME
-set sleep timeout to TIME seconds
+.B -s \fITIME
+set sleep timeout to \fITIME\fR seconds
 .TP
-.B -n NICE
-run processes with priority NICE
+.B -n \fINICE
+run processes with priority \fINICE\fR
 .TP
 .B -v
 verbose operation
@@ -88,6 +88,17 @@ or
 can indicate an intermittent network problem. As a result, the machine which failed
 is put to sleep for TIME seconds (default 10). Each available process on a machine 
 counts as a different machine.
+
+.P
+
+.TP
+\fBssh(1)\fR is executed as follows:
+ ssh -n -o "PasswordAuthenticaton no" user@host \fIcommandline\fR
+.P
+This causes ssh to fail instead of promoting for the passsword. Since this can
+be due to intermittent network problems, it is a retryable error. This also causes
+ssh to disconnect from \fIstdin\fR, so remote processes can not read in read
+from \fIstdin\fR either.
 
 .SH EXAMPLES
 .TP
