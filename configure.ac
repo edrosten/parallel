@@ -1,4 +1,4 @@
-AC_INIT(parallel,1.3.1)
+AC_INIT(parallel,1.3.2)
 AC_COPYRIGHT([Copyright E. Rosten 2006, 2007, 2008])
 
 
