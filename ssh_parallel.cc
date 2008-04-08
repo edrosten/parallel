@@ -10,6 +10,7 @@
 #include <string>
 #include <iostream>
 #include <sstream>
+#include <iterator>
 #include <vector>
 #include <set>
 #include <map>
@@ -39,13 +40,18 @@ int main(int argc, char** argv)
 	string nice="";
 	
 	ostringstream usage;
-	usage << "[-n NICE] [-s TIME] [-v] [-h] dir machine #processes [ machine #processes [... ]]" << endl;
+	usage << "[-n NICE] [-o OPTION] [-d TIME] [-s TIME] [-v] [-h] dir machine #processes [ machine #processes [... ]]" << endl;
 
+	vector<string> ssh_environment;
+	ssh_environment.push_back("ssh");
+	ssh_environment.push_back("-n");
+	ssh_environment.push_back("-o");
+	ssh_environment.push_back("PasswordAuthentication no");
 
 	{
 		int c;
 		opterr=0;
-		while((c=getopt(argc, argv, "hvn:s:")) != -1)
+		while((c=getopt(argc, argv, "hvn:s:d:")) != -1)
 			switch(c)
 			{
 				case 'v':
@@ -65,15 +71,46 @@ int main(int argc, char** argv)
 						st >> sleep_timeout;
 
 						if(sleep_timeout <= 0)
-							ERROR("timeout must ba a positive integer. " << optarg << " is not valid.");
+							ERROR("sleep timeout must ba a positive integer. `" << optarg << "' is not valid.");
 					}
 				case 'n':
 						nice = optarg;
 					break;
 
+				case 'd':
+					{	
+						int dt_val=0;
+						istringstream dt(optarg);
+						dt >> dt_val;
+
+						dt_val = (dt_val + 5)/10;
+						
+						if(dt_val <= 0)
+							ERROR("dead timeout must be a positive integer > 5 seconds. `" << optarg << "' is not valid.");
+
+						ssh_environment.push_back("-o");
+						ssh_environment.push_back("ServerAliveInterval 10");
+						ssh_environment.push_back("-o");
+						ostringstream os;
+						os << "ServerAliveCountMax " << dt_val;
+						ssh_environment.push_back(os.str());
+					}
+					break;
+
+				case 'o':
+					ssh_environment.push_back("-o");
+					ssh_environment.push_back(optarg);
+					break;
+
 				case '?':
 					if(optopt == 'n')
 						ERROR("-n requires an argument.");
+					else if(optopt == 's')
+						ERROR("-s requires an argument.");
+					else if(optopt == 'd')
+						ERROR("-d requires an argument.");
+					else if(optopt == 'o')
+						ERROR("-o requires an argument.");
 					else
 						ERROR("Error: Unknown option -" << (char)optopt);
 					break;
@@ -83,6 +120,20 @@ int main(int argc, char** argv)
 
 		start=optind;
 	}
+
+	VERBOSE("SSH Arguments are:");
+	if(verbose)
+	{
+		clog << argv[0] << ": ";
+		copy(ssh_environment.begin(), ssh_environment.end(), ostream_iterator<string>(clog, " "));
+		clog << endl;
+	}
+
+	//Turn the vector<string> of ssh arguments
+	//in to a C style NULL terminated array of pointers to C-strings
+	vector<const char*> ssh_argv;
+	for(unsigned int i=0; i < ssh_environment.size(); i++)
+		ssh_argv.push_back(ssh_environment[i].c_str());
 
 	
 	VERBOSE("Starting...");
@@ -310,8 +361,13 @@ int main(int argc, char** argv)
 			//locally
 			if(m != "")
 			{
-				VERBOSE("Executing (with ssh -n " << m << ") -->" << line);
-				execlp("ssh", "ssh", "-n", "-o", "PasswordAuthentication no ", m.c_str(), line.c_str(), NULL);
+				VERBOSE("Executing on " << m << ": -->" << line << "<--") ;
+				
+				//Add the destination machine and commandline to ssh
+				ssh_argv.push_back(m.c_str());
+				ssh_argv.push_back(line.c_str());
+				ssh_argv.push_back(NULL);
+				execvp("ssh", const_cast<char*const*>(&(ssh_argv[0])));
 			}
 			else
 			{
