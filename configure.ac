@@ -47,9 +47,6 @@ define([TEST_AND_SET_CXXFLAG],[
 
 
 
-
-
-
 AC_PROG_CC
 AC_PROG_CXX
 
@@ -64,6 +61,28 @@ if test $cc = 0
 then
 	AC_MSG_NOTICE(Something is wrong with the C++ compiler)
 else
+	AC_MSG_CHECKING([if ssh sometimes exits with 1, not 255])
+	ssh -p 1 localhost > /dev/null 2> /dev/null 
+
+	res=$?
+
+	AC_MSG_RESULT($res)
+
+	if test $res == 1
+	then
+cat << FOO
+******* WARNING ********
+Your version of SSH is broken and sometimes returns 1 on error, not 255.  This
+makes it hard to check for SSH failures.  ssh_parallel will test for an exit
+code of 1 to indicate ssh failure.  If your script exits with code one, it will
+be rerun as the condition is indistintuishable from an SSH failure.
+************************
+FOO
+
+	fi
+
+	AC_DEFINE_UNQUOTED(OTHER_RETURN, $res)
+
 	targets="$targets ssh_parallel"
 fi
 

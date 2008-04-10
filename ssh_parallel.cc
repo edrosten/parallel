@@ -16,6 +16,8 @@
 #include <map>
 #include <list>
 
+#include "config.h"
+
 using namespace std;
 
 #define VERBOSE(X) if(verbose) clog << argv[0] << ": " << X << endl
@@ -251,14 +253,14 @@ int main(int argc, char** argv)
 					//SSH exits with 255 if it fails. 
 					//ssh_parallel exits with 254 if exec fails
 					//the remote script exits with 253 if "cd" fails.
-					if(exits == 255 || exits == 254 || exits == 253)
+					if(exits == 255 || exits == 254 || exits == 253 || exits == OTHER_RETURN)
 					{	
 						//If SSH failes, record the bad line, and the 
 						//slot (ie machine) that failed.
 						//Do NOT add the bad slot to the list of free slots.
 						fail=1;
 
-						if(exits == 255)
+						if(exits == 255 || exits == OTHER_RETURN)
 							WARNING("ssh to " << machine_list[pid_to_slot[pid]] << " failed.");
 						else if(exits == 254)
 						{
@@ -301,7 +303,10 @@ int main(int argc, char** argv)
 				//we're done, so we can quit.
 
 				if(!cin_ok && failed_lines.empty())
+				{
+					VERBOSE("Done.");
 					exit(0);
+				}
 
 				//if we've got here then there are no processes to wait for, but there is pending
 				//input. That means (according to the loop condition) free_slots must be empty.
@@ -359,7 +364,7 @@ int main(int argc, char** argv)
 
 			//If a machine name is specified, then ssh to it, otherwise run the process
 			//locally
-			if(m != "")
+			if(m != "" && m!= "localhost")
 			{
 				VERBOSE("Executing on " << m << ": -->" << line << "<--") ;
 				

@@ -73,6 +73,8 @@ can be given in
 .B user@host
 format. A machine name of
 .B """"""
+or
+.B localhost
 corresponds to the local machine. SSH is not used in this case. 
 
 .TP 
@@ -91,6 +93,16 @@ are indicated by the return codes 255, 254 and 253 respectively. Since
 returns the return code of the remote executing script, if the remote script
 returns any of these error codes, it will be rerun, and the corresponding
 error reported.
+
+Note that some versions of 
+.B ssh(1)
+do not follow the documentation and return 1, not 255 on certain errors 
+(connection refused, no route to host). If
+.B ssh_parallel
+is built on a machine with broken 
+.B ssh(1)
+then a return code of 1 is also used to indicate failure.
+
 
 A failure of 
 .B ssh(1)
