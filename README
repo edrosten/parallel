@@ -16,7 +16,6 @@ and as root:
 
 make install
 
-
 See the man page for further documentation.
 
 I have attempted to test the program by replacing fork() and exec() with
