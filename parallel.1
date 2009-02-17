@@ -126,10 +126,10 @@ from \fIstdin\fR either.
 .SH EXAMPLES
 .TP
 Convert all PNG files to JPEG files using 4 simultaneous processes:
- ls | grep \(aq\e.png$\(aq | sed -e \(aqs/\(.*\)png/convert & \e1jpg/\(aq | parallel 4
+ ls | grep \(aq\e.png$\(aq | sed -e \(aqs/\e(.*\e)png/convert & \e1jpg/\(aq | parallel 4
 .TP
 Perform the same operation on bigserver and hugeserver, using more processes:
- ls | grep \(aq\e.png$\(aq | sed -e \(aqs/\(.*\)png/convert & \e1jpg/\(aq | ssh_parallel $PWD bigserver 8 hugeserver 16
+ ls | grep \(aq\e.png$\(aq | sed -e \(aqs/\e(.*\e)png/convert & \e1jpg/\(aq | ssh_parallel $PWD bigserver 8 hugeserver 16
 
 
 .SH AUTHOR
