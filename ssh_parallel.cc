@@ -53,7 +53,7 @@ int main(int argc, char** argv)
 	{
 		int c;
 		opterr=0;
-		while((c=getopt(argc, argv, "hvn:s:d:")) != -1)
+		while((c=getopt(argc, argv, "hvn:s:d:o:")) != -1)
 			switch(c)
 			{
 				case 'v':
